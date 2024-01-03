@@ -1,7 +1,7 @@
 # Production Stage
-FROM alpine:3.18
+FROM ubuntu:22.04
 
-LABEL maintainer="info@openim.io" \
+LABEL maintainer="cubxxw@openim.io" \
       org.opencontainers.image.source=https://github.com/openim-sigs/openim-base-image \
       org.opencontainers.image.description="OpenIM Sigs Image" \
       org.opencontainers.image.licenses="MIT"
@@ -32,13 +32,14 @@ ENV OPENIM_SERVER_CONFIG_NAME=$SERVER_WORKDIR/config \
 
 WORKDIR /openim
 
-RUN apk --no-cache add tzdata ca-certificates ncurses bash libdrm && \
-    apk add --no-cache --virtual build-dependencies && \ 
-    rm -rf /var/cache/apk/* &&\
-    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+# Install required packages
+RUN apt-get update && \
+    apt-get install -y tzdata ca-certificates iproute2 lsof psmisc dnsutils && \
+    ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata && \
     echo "openim-sigs" > /etc/hostname && \
     for dir in "$SERVER_WORKDIR" "$CHAT_WORKDIR" "$OPENKF_WORKDIR"; do \
-      for subdir in logs _output/bin scripts config; do \
+      for subdir in logs _output/bin scripts deployments config; do \
         mkdir -p "$dir/$subdir"; \
       done; \
     done && \
@@ -52,18 +53,16 @@ RUN /openim/tools/get_os.sh > ~/os && \
     echo "export OS=$(cat ~/os)" >> /etc/profile && \
     echo "export ARCH=$(cat ~/arch)" >> /etc/profile && \
     chmod +x /openim/tools/*.sh && \
-    cp /openim/tools/get_os.sh /bin/get_os && \
-    cp /openim/tools/get_arch.sh /bin/get_arch
+    cp /openim/tools/get_os.sh /usr/local/bin/get_os && \
+    cp /openim/tools/get_arch.sh /usr/local/bin/get_arch
 
-# # Set directory to map logs, config files, scripts, and SDK
-# VOLUME ["/openim", \
-#         "/openim/openim-server/logs", "/openim/openim-server/config", "/openim/openim-server/scripts", "/openim/openim-server/_output/logs", \
-#         "/openim/openim-chat/logs", "/openim/openim-chat/config", "/openim/openim-chat/scripts","/openim/openim-chat/_output/logs", \
-#         "/openim/openkf/logs", "/openim/openkf/config", "/openim/openkf/scripts", "/openim/openkf/_output/bin"]
+# Set directory to map logs, config files, scripts, and SDK
+VOLUME ["/openim", \
+        "/openim/openim-server/logs", "/openim/openim-server/config", "/openim/openim-server/scripts", "/openim/openim-server/deployments", "/openim/openim-server/_output/logs", \
+        "/openim/openim-chat/logs", "/openim/openim-chat/config", "/openim/openim-chat/scripts","/openim/openim-chat/_output/logs", \
+        "/openim/openkf/logs", "/openim/openkf/config", "/openim/openkf/scripts", "/openim/openkf/_output/bin"]
 
 WORKDIR /openim
 
-RUN ["/bin/bash"]
-
-# ONBUILD RUN OS=$(get_os) && \
-#             ARCH=$(get_arch)
+ONBUILD RUN OS=$(get_os) && \
+            ARCH=$(get_arch)
